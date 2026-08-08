@@ -1,0 +1,90 @@
+Heellow I am chiraag
+# Memora AI: Project Memory Engine - Implementation Plan
+
+This plan details the implementation of Memora AI, an AI-powered Project Memory Engine designed to continuously capture, understand, organize, and retrieve the evolution of a software project. This implementation fulfills the requirements of Problem Statement B (Developer Productivity Tools) for the "Deploy or Die" Hackathon.
+
+## Goal Description
+Memora AI is a comprehensive Memory Engine—a fusion of NotebookLM, Git history, Developer Wiki, Project Timeline, and AI Coding Assistant. It transforms low-level IDE activities into high-level, semantic engineering memories. Rather than blindly storing raw events, the system intelligently merges, categorizes, and relates them within a Knowledge Graph and multiple vector collections to provide deep, accurate, and hallucination-free retrieval. 
+
+## Architectural Pipeline
+The system strictly follows this decoupled architecture:
+**IDE Extension** → **IDE Connector (Event Collector)** → **Memory Engine** → **Timeline** → **Metadata Store** → **Vector Database (pgvector)** → **Knowledge Graph** → **RAG Engine** → **AI Assistant**
+
+---
+
+## Proposed Changes
+
+### 1. IDE Connector Layer & Client (TypeScript)
+To avoid tight coupling to VS Code APIs, we implement an abstraction layer for the IDE client.
+
+#### [NEW] `vscode-extension/src/ide-connector.ts`
+- **Abstraction Layer:** Defines interfaces for interacting with the IDE environment (VS Code, Cursor, JetBrains).
+- **Smart Event Collector:** Hooks into IDE events, buffering and forwarding them to the backend rather than saving them directly.
+- **Terminal Parsing:** Detects execution signatures (e.g., `pytest` → "Tests Passed", `docker compose up` → "Environment Started") instead of dumping raw terminal output.
+- **Decision Card Prompt:** UI logic to prompt developers to create a Decision Card when the backend detects major architectural shifts.
+
+#### [NEW] `vscode-extension/src/extension.ts`
+- Orchestrates the initialization of the IDE Connector and Webview for the AI Assistant interface.
+
+### 2. Core Backend Services (Python/FastAPI)
+The backend is restructured around the Memory Engine and specialized semantic processing layers.
+
+#### [NEW] `backend/app/api/endpoints/memory.py` (Renamed from telemetry)
+- Replaces `telemetry.py`. Exposes REST endpoints to ingest decoupled IDE events (File events, Git events, Terminal semantic events).
+
+#### [NEW] `backend/app/services/memory_engine.py`
+- **Central Component:** Transforms raw IDE events into Engineering Memories.
+- **Merge & Deduplicate:** Combines multiple related file saves (e.g., `auth.py`, `login.tsx`) into a single cohesive Engineering Memory.
+- **Classification:** Categorizes memories into specific domains (Feature, Bug Fix, Refactor, Architecture, Documentation, etc.).
+- **Decision Detection:** Flags major structural changes to trigger a "Decision Card" generation request.
+
+#### [NEW] `backend/app/services/document_processor.py`, `chunker.py`, `embedding_service.py`
+- **Upload Pipeline:** Handles uploaded external documents (Extract Text → Chunk → Generate Embeddings → Store Metadata & Vectors → Link to Knowledge Graph).
+
+#### [NEW] `backend/app/services/timeline_service.py`
+- Generates project timelines, daily/weekly engineering reports, release histories, and milestone tracking. Automatically triggers upon new memory processing.
+
+#### [NEW] `backend/app/services/project_health.py`
+- Periodically scans the metadata and memory graph to detect and report on missing documentation, dead code, large files, untestable code, and open TODOs.
+
+### 3. Data Storage: Memory Types & Knowledge Graph
+We abandon the "single vector collection" approach in favor of partitioned memories and relationship tracking.
+
+#### [MODIFY] `backend/app/schemas/document.py` & Database Models
+- **Partitioned Memory Collections:** Establish separate pgvector collections for: `CodeMemory`, `DecisionMemory`, `DocumentationMemory`, `MeetingMemory`, `UploadMemory`, `GitMemory`, `ArchitectureMemory`, `IssueMemory`, and `TimelineMemory`.
+- **Knowledge Graph Schema:** Define SQLAlchemy models to map many-to-many relationships between Entities (Files, Commits, Developers, Decisions, Features).
+
+### 4. RAG Engine & AI Retrieval Policy
+The RAG pipeline is upgraded to a three-stage routing system to guarantee no hallucination.
+
+#### [MODIFY] `backend/app/services/rag.py`
+- **Stage 1 (Intent Detection):** Classify user query as Project-Specific vs General SWE.
+- **Stage 2 (Project-Specific Retrieval):** Query only the internal Project Memories (via Knowledge Graph & pgvector collections). If no evidence is found, abort gracefully ("I don't know").
+- **Stage 3 (General SWE Retrieval):** Answer standard software engineering questions using general model knowledge, explicitly tagged as *General Explanation*.
+- **Response Formatting:** Ensure responses separate *Project Evidence* from *General Explanations*. Ensure citations (Files, Commits, Decisions) are directly linked from the Knowledge Graph.
+
+### 5. Spec Framework & Hackathon Deliverables
+Using GitHub Spec Kit to orchestrate and evaluate the product build.
+- **Architecture Document:** Update to reflect the Pipeline, Memory Types, and Knowledge Graph.
+- **Agent Rules:** Configure `.clinerules` and `AGENTS_AND_SKILLS.md` enforcing the strict RAG rules and IDE abstraction.
+- **CI/CD:** GitHub Actions configured with Playwright (for Next.js/Webview interactions) and Pytest.
+- **Code Quality:** Establish strict linting (`ruff`, `eslint`) and commit-hook standards.
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- **RAG Routing Tests:** Unit tests in `pytest` to assert that Project-specific queries do NOT fallback to general knowledge if project context is empty.
+- **Memory Engine Tests:** Provide mock IDE event streams (e.g., 5 sequential file saves within 2 minutes) and assert they are merged into a single summarized `EngineeringMemory`.
+- **Knowledge Graph Integrity:** Assert that inserting a Decision Card properly creates bi-directional links to the associated Files and Author.
+
+### Manual Verification
+- **End-to-End IDE Workflow:** 
+  1. Modify multiple files related to a specific feature in the IDE.
+  2. Run tests in the terminal.
+  3. Verify the Memory Engine merges these into a single Semantic Feature Memory.
+- **AI Assistant Q&A:** 
+  1. Ask "Why was JWT implemented?" → Verify citation of a Decision Card.
+  2. Ask "What is a binary search tree?" → Verify General Explanation response.
+  3. Request "Generate Project Summary" → Verify it aggregates from the `timeline_service.py`.

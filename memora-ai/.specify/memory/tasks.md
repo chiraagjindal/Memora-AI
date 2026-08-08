@@ -1,0 +1,23 @@
+- [/] Step 1: Initialization & Spec Kit
+    - [ ] Install `uv` if not already installed.
+    - [ ] Install Spec Kit (`uv tool install specify-cli --from git+https://github.com/github/spec-kit.git`).
+    - [ ] Initialize specify project in `MemoraAI`.
+    - [ ] Run Spec Kit ADLC commands (`/speckit.constitution`, `/speckit.specify`, `/speckit.plan`, `/speckit.tasks`).
+- [ ] Step 2: VS Code Extension Setup (Client)
+    - [ ] Create `vscode-extension` directory.
+    - [ ] Initialize Node/TS project with `package.json` for VS Code extension.
+    - [ ] Implement `src/extension.ts` to hook into File Saves, Git Commits, and Terminal Execution.
+    - [ ] Implement Webview UI for chat interface.
+- [ ] Step 3: Python Backend Enhancements (FastAPI)
+    - [ ] Add `backend/app/api/endpoints/telemetry.py` to ingest telemetry events.
+    - [ ] Modify `backend/app/services/rag.py` to implement the Two-Tier Retrieval Policy (Strict project evidence vs General explanation).
+- [ ] Step 4: Mandatory Hackathon Checkpoints
+    - [ ] Create `ARCHITECTURE.md` detailing the stack.
+    - [ ] Create `.clinerules` and `AGENTS.md` for Agent Rules.
+    - [ ] Document Custom Agent & Skill in `AGENTS_AND_SKILLS.md`.
+    - [ ] Verify working code builds and runs.
+    - [ ] Setup GitHub Actions pipeline (`.github/workflows/main.yml`).
+- [ ] Step 5: Group Two Scoring Requirements
+    - [ ] Write E2E Playwright tests.
+    - [ ] Add Pre-commit hooks, `ruff`, and `eslint`.
+    - [ ] Tag the final release.

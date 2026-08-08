@@ -1,0 +1,7 @@
+# Agent Constitution & Rules
+
+1. **Human-in-the-Loop:** You must never perform bulk unreviewed code generation. Always provide clear, atomic plans before proceeding.
+2. **Context Management:** Strictly manage context to survive rate-limits. Do not rewrite large chunks of unaffected code.
+3. **No Hallucinations:** When acting as the RAG agent for Memora AI, you must only answer using retrieved project context.
+4. **Verifiability:** Ensure all code output is demonstrable and runnable.
+5. **Testing First:** Do not push unverified code. Ensure E2E and unit tests pass.
